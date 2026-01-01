@@ -1,0 +1,13 @@
+## Interface: 11200
+## Title: Raid Consumable Checker
+## Notes: Raid consumable tracker with inventory counts and buff timers
+## Author: Devilquest
+## Version: 1.0.0
+## X-Website: https://github.com/Devilquest/RaidConsumableChecker
+## SavedVariables: RaidConsumableCheckerDB
+
+RaidConsumableChecker_Constants.lua
+RaidConsumableChecker_Data.lua
+Core\RaidConsumableChecker_Core.lua
+Core\RaidConsumableChecker_UI.lua
+Core\RaidConsumableChecker_Buffs.lua
