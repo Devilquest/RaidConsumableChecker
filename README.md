@@ -20,7 +20,6 @@ A visual tracker addon for World of Warcraft Vanilla 1.12 that helps you monitor
 - **Organized Categories**: Consumables grouped into customizable categories
 - **Dynamic Window Size**: Window automatically adjusts based on your consumable list
 - **Weapon Enchant Tracking**: Special support for temporary weapon enchants (Wizard Oil, etc.)
-- **Per-Character Position**: Window position saved individually for each character
 - **Fallback Icons**: Missing or invalid icons automatically display a question mark
 
 ## Installation
@@ -77,7 +76,7 @@ World of Warcraft/
 **Window Interactions:**
 - **Left Click on Item**: Use the consumable
 - **Hover over Item**: View tooltip with item details, buff status, and description
-- **Drag Title Bar**: Move the window (position is saved per character)
+- **Drag Title Bar**: Move the window
 - **Click X Button**: Close the window
 
 **Visual Indicators:**
@@ -269,7 +268,7 @@ Each consumable item is defined in the `RCC_ConsumableData.Items` table with the
 ### Finding Item Information
 
 **Item Names:**
-- Must match **exactly** as shown in your bags or character sheet
+- Must match **exactly** as shown in your bags
 - Case-sensitive
 - Include any colons, apostrophes, or special characters
 
@@ -398,7 +397,7 @@ RaidConsumableChecker/
 - Check for Lua errors that might be blocking the click handler
 
 **Window position resets:**
-- Position is saved per character in `SavedVariables`
+- Position is saved in `SavedVariables`
 - Exit game properly (don't Alt+F4) to ensure settings save
 - `/reload` preserves your saved position
 
@@ -439,7 +438,6 @@ RaidConsumableChecker/
 - Smart confirmation when buff is already active
 - Organized categories
 - Dynamic window sizing
-- Per-character window position saving
 - Weapon enchant tracking support
 - Fallback icons for invalid paths
 - Three customizable slash commands
