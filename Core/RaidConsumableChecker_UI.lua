@@ -304,11 +304,16 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
         border:SetVertexColor(noBuffR, noBuffG, noBuffB, noBuffA)
     end
     
-    -- Counter text
+    -- Counter text (only if requiredCount is defined)
     local counterText = itemFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     counterText:SetPoint("BOTTOM", icon, "BOTTOM", 0, 2)
     counterText:SetFont(RCC_Constants.FONT_NORMAL, RCC_Constants.FONT_SIZE_COUNTER, "OUTLINE")
-    counterText:SetText("0/" .. itemData.requiredCount)
+    
+    if itemData.requiredCount then
+        counterText:SetText("0/" .. itemData.requiredCount)
+    else
+        counterText:Hide()
+    end
 
     -- Buff time remaining text
     local buffTimeText = itemFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -323,7 +328,18 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
         local nameText = itemFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         nameText:SetPoint("TOP", icon, "BOTTOM", 0, -5)
         nameText:SetFont(RCC_Constants.FONT_NORMAL, RCC_Constants.FONT_SIZE_ITEM_NAME, "")
-        nameText:SetText(itemData.itemName)
+        
+        -- Priority: displayName > itemName > first buffName
+        local displayText = itemData.displayName or itemData.itemName
+        if not displayText and itemData.buffName then
+            if type(itemData.buffName) == "table" then
+                displayText = itemData.buffName[1]
+            else
+                displayText = itemData.buffName
+            end
+        end
+        
+        nameText:SetText(displayText or "")
         nameText:SetWidth(RCC_Constants.ICON_SIZE + 20)
         nameText:SetJustifyH("CENTER")
         itemFrame.nameText = nameText
@@ -333,8 +349,25 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
     itemFrame:EnableMouse(true)
     itemFrame:SetScript("OnEnter", function()
         GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-        GameTooltip:SetText(itemData.itemName, 1, 1, 1)
-        GameTooltip:AddLine("Required: " .. itemData.requiredCount, 0.8, 0.8, 0.8)
+        
+        -- Priority: displayName > itemName > first buffName
+        local tooltipTitle = itemData.displayName or itemData.itemName
+        if not tooltipTitle and itemData.buffName then
+            if type(itemData.buffName) == "table" then
+                tooltipTitle = itemData.buffName[1]
+            else
+                tooltipTitle = itemData.buffName
+            end
+        end
+        
+        if tooltipTitle then
+            GameTooltip:SetText(tooltipTitle, 1, 1, 1)
+        end
+        
+        -- Show required count if defined
+        if itemData.requiredCount then
+            GameTooltip:AddLine("Required: " .. itemData.requiredCount, 0.8, 0.8, 0.8)
+        end
         
         if itemData.buffName then
             if itemData.buffName == RCC_Constants.SPECIAL_BUFF_EQUIPPED_WEAPON then
@@ -346,10 +379,19 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
                 end
             else
                 local hasBuff = RaidConsumableChecker:HasBuff(itemData.buffName)
-                if hasBuff then
-                    GameTooltip:AddLine("Buff: " .. itemData.buffName, 0, 1, 0)
+                
+                -- Display buff name(s)
+                local buffDisplayText = "Buff: "
+                if type(itemData.buffName) == "table" then
+                    buffDisplayText = buffDisplayText .. table.concat(itemData.buffName, " / ")
                 else
-                    GameTooltip:AddLine("Buff: " .. itemData.buffName, 1, 0, 0)
+                    buffDisplayText = buffDisplayText .. itemData.buffName
+                end
+                
+                if hasBuff then
+                    GameTooltip:AddLine(buffDisplayText, 0, 1, 0)
+                else
+                    GameTooltip:AddLine(buffDisplayText, 1, 0, 0)
                 end
             end
         end
@@ -360,7 +402,8 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
             GameTooltip:AddLine(itemData.description, descR, descG, descB, true) -- true = wrap text
         end
         
-        if itemData.buffName then
+        -- Show click hint only if item can be used (has itemName and buffName)
+        if itemData.buffName and itemData.itemName then
             GameTooltip:AddLine(RCC_Constants.TEXT_TOOLTIP_CLICK_TO_USE, 0.5, 0.5, 1)
         end
         
@@ -370,8 +413,8 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
         GameTooltip:Hide()
     end)
     
-    -- Click handler
-    if itemData.buffName then
+    -- Click handler (only if item has both buffName and itemName)
+    if itemData.buffName and itemData.itemName then
         itemFrame:RegisterForClicks("LeftButtonUp")
         itemFrame:SetScript("OnClick", function()
             RaidConsumableChecker:UseConsumable(itemData)

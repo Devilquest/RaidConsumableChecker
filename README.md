@@ -2,7 +2,7 @@
 
 A visual tracker addon for World of Warcraft Vanilla 1.12 that helps you monitor your raid consumables with real-time inventory counts and buff timers.
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
 ![WoW Version](https://img.shields.io/badge/wow-1.12.x-orange.svg)
 
 ## Features
@@ -140,12 +140,13 @@ Each consumable item is defined in the `RCC_ConsumableData.Items` table with the
 
 ```lua
 {
-    itemName = "Flask of Supreme Power",           -- REQUIRED
+    displayName = "Spell Damage Flask",            -- Optional (custom label in UI)
+    itemName = "Flask of Supreme Power",           -- Optional (required for clickable items)
     itemID = 13512,                                -- Optional (but recommended)
     iconPath = "Interface\\Icons\\INV_Potion_41",  -- REQUIRED
-    requiredCount = 1,                             -- REQUIRED
-    buffName = "Supreme Power",                    -- Optional
-    description = "Increases damage...",           -- Optional
+    requiredCount = 1,                             -- Optional (omit for buff-only tracking)
+    buffName = "Supreme Power",                    -- Optional (can also be a table)
+    description = "Increases spell damage...",     -- Optional
     category = "category1"                         -- REQUIRED
 }
 ```
@@ -154,11 +155,12 @@ Each consumable item is defined in the `RCC_ConsumableData.Items` table with the
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| **itemName** | ✅ Yes | Exact item name as it appears in-game (case-sensitive) |
+| **displayName** | ❌ No | Custom name to display in UI (below icon and in tooltip)<br>**Priority**: displayName > itemName > buffName<br>Useful for buff-only items where you want a custom label (e.g., "Mage Intellect" instead of "Arcane Brilliance") |
+| **itemName** | ❌ No | Exact item name as it appears in-game (case-sensitive)<br>**Required if you want to click to use the item**<br>Can be omitted for buff-only tracking (e.g., buffs from other players) |
 | **itemID** | ❌ No | Item ID from Wowhead (not currently used by addon, but recommended for reference) |
 | **iconPath** | ✅ Yes | Game texture path for the item icon (use double backslashes `\\`) |
-| **requiredCount** | ✅ Yes | How many of this item you should have for raiding |
-| **buffName** | ❌ No | Name of the buff to track (must match exact buff name in-game)<br>**Omit this for instant effect items** like healing/mana potions |
+| **requiredCount** | ❌ No | How many of this item you should have for raiding<br>**If omitted, inventory count will not be displayed or checked**<br>Useful for tracking buffs you don't carry (like Arcane Intellect from mages) |
+| **buffName** | ❌ No | Name of the buff to track (must match exact buff name in-game)<br>Can be a **single string**: `buffName = "Arcane Intellect"`<br>Or a **table of strings**: `buffName = { "Arcane Intellect", "Arcane Brilliance" }`<br>When using a table, any matching buff will be considered active<br>**Omit this for instant effect items** like healing/mana potions |
 | **description** | ❌ No | Custom description text shown in tooltip |
 | **category** | ✅ Yes | Category ID (must match one from Categories section) |
 
@@ -169,6 +171,7 @@ Each consumable item is defined in the `RCC_ConsumableData.Items` table with the
 #### Example 1: Flask with Buff Tracking
 ```lua
 {
+    displayName = "Spell Damage Flask",
     itemName = "Flask of Supreme Power",
     itemID = 13512,
     iconPath = "Interface\\Icons\\INV_Potion_41",
@@ -178,6 +181,7 @@ Each consumable item is defined in the `RCC_ConsumableData.Items` table with the
     category = "category1"
 }
 ```
+- **`displayName`**: Shows "Spell Damage Flask" as the label instead of the item name
 - Has buff tracking (border will be green/orange/red based on buff status)
 - Description appears in tooltip
 - Clicking uses the flask
@@ -248,22 +252,52 @@ Each consumable item is defined in the `RCC_ConsumableData.Items` table with the
 - Always check Wowhead or hover over the buff in-game to get the correct buff name
 - Many items have buff names that differ from the item name
 
-#### Example 6: Minimal Configuration
+#### Example 6: Buff-Only Tracking (Mage Intellect)
 ```lua
 {
-    itemName = "Dark Rune",
-    iconPath = "Interface\\Icons\\SPELL_Shadow_Sealofkings",
-    requiredCount = 10,
-    category = "category3"
+    displayName = "Mage Intellect",
+    iconPath = "Interface\\Icons\\spell_holy_magicalsentry",
+    buffName = "Arcane Intellect",
+    description = "Increases Intellect by 31 for 30 min.",
+    category = "category5"
 }
 ```
-- Only required fields specified
-- No itemID (not needed)
-- No buffName (instant effect)
-- No description (tooltip won't show extra info)
-- This is the minimum needed for an item to work
+- **No `itemName`**: This is a buff you receive from mages
+- **No `requiredCount`**: No inventory tracking needed
+- **`displayName`**: Shows "Mage Intellect" as the label
+- Border shows green when you have the buff, red when you don't
+- Shows remaining time when buff is active
+- Cannot be clicked (no item to use)
+- Perfect for tracking raid buffs from other players
 
----
+#### Example 7: Druid Buffs (Mark of the Wild)
+```lua
+{
+    displayName = "Druid Buffs",
+    iconPath = "Interface\\Icons\\spell_nature_regeneration",
+    buffName = { "Mark of the Wild", "Gift of the Wild" },
+    description = "Increases armor and all resistances.",
+    category = "category5"
+}
+```
+- Tracks both single-target and raid-wide versions
+- Custom display name for clarity
+- No inventory management
+- Pure buff tracking
+
+#### Example 8: Priest Fortitude
+```lua
+{
+    iconPath = "Interface\\Icons\\spell_holy_wordfortitude",
+    buffName = { "Power Word: Fortitude", "Prayer of Fortitude" },
+    description = "Increases Stamina.",
+    category = "category5"
+}
+```
+- Tracks both single-target and group versions
+- **Missing `displayName`**: UI falls back to showing the first buff name ("Power Word: Fortitude")
+- Shows remaining buff time
+- Visual indicator when buff expires
 
 ### Finding Item Information
 
@@ -428,6 +462,16 @@ RaidConsumableChecker/
 ---
 
 ## Changelog
+
+### v1.1.0
+- Implemented buff tracking support
+- Optional `requiredCount` for buff tracking without inventory requirements
+- Multi-buff support using table syntax for `buffName`
+- Optional `displayName` field for custom UI labels
+- Support for buff-only entries without associated `itemName`
+- Hierarchical display name priority: `displayName` > `itemName` > `buffName`
+- Automated hiding of inventory counters for items without `requiredCount`
+- Multi-buff variant listing in tooltips
 
 ### v1.0.0
 - Initial release

@@ -5,23 +5,28 @@
 
 -- ============================================================================
 -- UPDATE CONSUMABLE DISPLAY (inventory count only)
+-- Only updates if requiredCount is defined
 -- ============================================================================
 function RaidConsumableChecker:UpdateConsumables()
     for i, itemFrame in ipairs(self.itemFrames) do
         local itemData = itemFrame.itemData
-        local count = self:GetItemCount(itemData.itemName)
         
-        -- Update counter text
-        local counterText = string.format(RCC_Constants.TEXT_COUNTER_FORMAT, count, itemData.requiredCount)
-        itemFrame.counterText:SetText(counterText)
-        
-        -- Update counter text color based on inventory count
-        if count >= itemData.requiredCount then
-            local textSuffR, textSuffG, textSuffB = self:HexToRGBA(RCC_Constants.TEXT_COLOR_SUFFICIENT)
-            itemFrame.counterText:SetTextColor(textSuffR, textSuffG, textSuffB)
-        else
-            local textInsuffR, textInsuffG, textInsuffB = self:HexToRGBA(RCC_Constants.TEXT_COLOR_INSUFFICIENT)
-            itemFrame.counterText:SetTextColor(textInsuffR, textInsuffG, textInsuffB)
+        -- Only update counter if requiredCount is defined
+        if itemData.requiredCount then
+            local count = self:GetItemCount(itemData.itemName)
+            
+            -- Update counter text
+            local counterText = string.format(RCC_Constants.TEXT_COUNTER_FORMAT, count, itemData.requiredCount)
+            itemFrame.counterText:SetText(counterText)
+            
+            -- Update counter text color based on inventory count
+            if count >= itemData.requiredCount then
+                local textSuffR, textSuffG, textSuffB = self:HexToRGBA(RCC_Constants.TEXT_COLOR_SUFFICIENT)
+                itemFrame.counterText:SetTextColor(textSuffR, textSuffG, textSuffB)
+            else
+                local textInsuffR, textInsuffG, textInsuffB = self:HexToRGBA(RCC_Constants.TEXT_COLOR_INSUFFICIENT)
+                itemFrame.counterText:SetTextColor(textInsuffR, textInsuffG, textInsuffB)
+            end
         end
     end
 end
@@ -101,6 +106,11 @@ end
 -- USE CONSUMABLE
 -- ============================================================================
 function RaidConsumableChecker:UseConsumable(itemData)
+    -- If no itemName, this is a buff-only entry (cannot be used)
+    if not itemData.itemName then
+        return
+    end
+    
     -- Check if player has the item in bags
     local itemCount = self:GetItemCount(itemData.itemName)
     if itemCount == 0 then
@@ -115,6 +125,9 @@ function RaidConsumableChecker:UseConsumable(itemData)
         local displayName = itemData.buffName
         if itemData.buffName == RCC_Constants.SPECIAL_BUFF_EQUIPPED_WEAPON then
             displayName = itemData.itemName
+        elseif type(itemData.buffName) == "table" then
+            -- If buffName is a table, show the first one for display
+            displayName = itemData.buffName[1]
         end
         
         -- Show confirmation dialog
@@ -193,37 +206,56 @@ end
 
 -- ============================================================================
 -- CHECK IF PLAYER HAS BUFF
+-- Supports both single buff name (string) and multiple buff names (table)
 -- ============================================================================
 function RaidConsumableChecker:HasBuff(buffName)
-    -- Handle special case: EQUIPPED_WEAPON (for weapon enchants)
-    if buffName == RCC_Constants.SPECIAL_BUFF_EQUIPPED_WEAPON then
-        return self:HasWeaponEnchant()
+    -- Handle nil case
+    if not buffName then
+        return false
     end
     
-    -- Trim the buff name
-    local trimmedBuffName = string.gsub(buffName, "^%s*(.-)%s*$", "%1")
+    -- Convert single string to table for unified processing
+    local buffNames = {}
+    if type(buffName) == "table" then
+        buffNames = buffName
+    else
+        buffNames = {buffName}
+    end
     
-    -- Use old API: GetPlayerBuff
-    local i = 0
-    while GetPlayerBuff(i, "HELPFUL") >= 0 do
-        local buffIndex, untilCancelled = GetPlayerBuff(i, "HELPFUL")
-        
-        -- Use tooltip to get buff name
-        RCCTooltip = RCCTooltip or CreateFrame("GameTooltip", "RCCTooltip", nil, "GameTooltipTemplate")
-        RCCTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-        RCCTooltip:SetPlayerBuff(buffIndex)
-        
-        local tooltipText = RCCTooltipTextLeft1:GetText()
-        
-        if tooltipText then
-            local trimmedTooltipText = string.gsub(tooltipText, "^%s*(.-)%s*$", "%1")
-            
-            if trimmedTooltipText == trimmedBuffName then
+    -- Check each buff name in the list
+    for _, currentBuffName in ipairs(buffNames) do
+        -- Handle special case: EQUIPPED_WEAPON (for weapon enchants)
+        if currentBuffName == RCC_Constants.SPECIAL_BUFF_EQUIPPED_WEAPON then
+            if self:HasWeaponEnchant() then
                 return true
             end
+        else
+            -- Trim the buff name
+            local trimmedBuffName = string.gsub(currentBuffName, "^%s*(.-)%s*$", "%1")
+            
+            -- Use old API: GetPlayerBuff
+            local i = 0
+            while GetPlayerBuff(i, "HELPFUL") >= 0 do
+                local buffIndex, untilCancelled = GetPlayerBuff(i, "HELPFUL")
+                
+                -- Use tooltip to get buff name
+                RCCTooltip = RCCTooltip or CreateFrame("GameTooltip", "RCCTooltip", nil, "GameTooltipTemplate")
+                RCCTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+                RCCTooltip:SetPlayerBuff(buffIndex)
+                
+                local tooltipText = RCCTooltipTextLeft1:GetText()
+                
+                if tooltipText then
+                    local trimmedTooltipText = string.gsub(tooltipText, "^%s*(.-)%s*$", "%1")
+                    
+                    if trimmedTooltipText == trimmedBuffName then
+                        return true
+                    end
+                end
+                
+                i = i + 1
+            end
         end
-        
-        i = i + 1
     end
     
     return false
@@ -231,36 +263,60 @@ end
 
 -- ============================================================================
 -- GET BUFF TIME REMAINING
+-- Supports both single buff name (string) and multiple buff names (table)
+-- Returns time remaining for the first matching buff found
 -- ============================================================================
 function RaidConsumableChecker:GetBuffTimeRemaining(buffName)
-    -- Handle special case: EQUIPPED_WEAPON
-    if buffName == RCC_Constants.SPECIAL_BUFF_EQUIPPED_WEAPON then
-        local hasMainHandEnchant, mainHandExpiration, mainHandCharges = GetWeaponEnchantInfo()
-        if hasMainHandEnchant and mainHandExpiration then
-            local timeInSeconds = mainHandExpiration / 1000
-            return timeInSeconds
-        end
+    -- Handle nil case
+    if not buffName then
         return nil
     end
     
-    -- Use old API: GetPlayerBuff + GetPlayerBuffTimeLeft
-    local i = 0
-    while GetPlayerBuff(i, "HELPFUL") >= 0 do
-        local buffIndex, untilCancelled = GetPlayerBuff(i, "HELPFUL")
-        
-        -- Use tooltip to get buff name
-        RCCTooltip = RCCTooltip or CreateFrame("GameTooltip", "RCCTooltip", nil, "GameTooltipTemplate")
-        RCCTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-        RCCTooltip:SetPlayerBuff(buffIndex)
-        
-        local tooltipText = RCCTooltipTextLeft1:GetText()
-        
-        if tooltipText and tooltipText == buffName then
-            local timeLeft = GetPlayerBuffTimeLeft(buffIndex)
-            return timeLeft
+    -- Convert single string to table for unified processing
+    local buffNames = {}
+    if type(buffName) == "table" then
+        buffNames = buffName
+    else
+        buffNames = {buffName}
+    end
+    
+    -- Check each buff name in the list
+    for _, currentBuffName in ipairs(buffNames) do
+        -- Handle special case: EQUIPPED_WEAPON
+        if currentBuffName == RCC_Constants.SPECIAL_BUFF_EQUIPPED_WEAPON then
+            local hasMainHandEnchant, mainHandExpiration, mainHandCharges = GetWeaponEnchantInfo()
+            if hasMainHandEnchant and mainHandExpiration then
+                local timeInSeconds = mainHandExpiration / 1000
+                return timeInSeconds
+            end
+        else
+            -- Trim the buff name
+            local trimmedBuffName = string.gsub(currentBuffName, "^%s*(.-)%s*$", "%1")
+            
+            -- Use old API: GetPlayerBuff + GetPlayerBuffTimeLeft
+            local i = 0
+            while GetPlayerBuff(i, "HELPFUL") >= 0 do
+                local buffIndex, untilCancelled = GetPlayerBuff(i, "HELPFUL")
+                
+                -- Use tooltip to get buff name
+                RCCTooltip = RCCTooltip or CreateFrame("GameTooltip", "RCCTooltip", nil, "GameTooltipTemplate")
+                RCCTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+                RCCTooltip:SetPlayerBuff(buffIndex)
+                
+                local tooltipText = RCCTooltipTextLeft1:GetText()
+                
+                if tooltipText then
+                    local trimmedTooltipText = string.gsub(tooltipText, "^%s*(.-)%s*$", "%1")
+                    
+                    if trimmedTooltipText == trimmedBuffName then
+                        local timeLeft = GetPlayerBuffTimeLeft(buffIndex)
+                        return timeLeft
+                    end
+                end
+                
+                i = i + 1
+            end
         end
-        
-        i = i + 1
     end
     
     return nil

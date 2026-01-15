@@ -13,20 +13,28 @@ RCC_ConsumableData.Categories = {
     {id = "category1", name = "Flasks / Oil / Food", order = 1, dashes = 15},
     {id = "category2", name = "Main Elixirs", order = 2, dashes = 19},
     {id = "category3", name = "Situational", order = 3, dashes = 19},
-    {id = "category4", name = "Protection Potions", order = 4, dashes = 15},
-    {id = "category5", name = "Potions", order = 5, dashes = 21},
+    {id = "category4", name = "Potions", order = 4, dashes = 21},
+    {id = "category5", name = "Buffs", order = 5, dashes = 23},
     {id = "other", name = "Other", order = 99, dashes = 22} -- Default category for uncategorized items
 }
 
 -- ============================================================================
 -- CONSUMABLE LIST
 -- Each entry contains:
---   itemName: Name of the item (must match exact item name in game)
+--   displayName: (Optional) Custom name to display in UI (below icon and in tooltip)
+--                Priority: displayName > itemName > buffName
+--                Useful for buff-only items where you want a custom label
+--   itemName: (Optional) Name of the item (must match exact item name in game)
+--             If not specified, this is a buff-only entry (cannot be used from inventory)
 --   itemID: (Optional) Item ID for reference
 --   iconPath: Path to the item icon texture
---   requiredCount: How many of this item you should have
+--   requiredCount: (Optional) How many of this item you should have
+--                  If not specified, inventory count will not be displayed or checked
 --   buffName: (Optional) Name of the buff provided by this consumable (for buff checking)
---             If not specified, item will be treated as having no buff (e.g., instant effect potions like healing/mana)
+--             Can be a single string: buffName = "Arcane Intellect"
+--             Or a table of strings: buffName = { "Arcane Intellect", "Arcane Brilliance" }
+--             If table is provided, any matching buff will be considered active
+--             If not specified, item will be treated as having no buff (e.g., instant effect potions)
 --   description: (Optional) Description text to show in tooltip
 --   category: Category identifier for grouping items
 -- ============================================================================
@@ -36,6 +44,7 @@ RCC_ConsumableData.Items = {
     -- FLASKS, OILS & FOOD (Example: 3 items in same category)
     -- ========================================================================
     {
+        displayName = "Spell Damage Flask",
         itemName = "Flask of Supreme Power",
         itemID = 13512,
         iconPath = "Interface\\Icons\\INV_Potion_41",
@@ -89,6 +98,7 @@ RCC_ConsumableData.Items = {
     -- SITUATIONAL (Example: 2 items, one with buff, one without)
     -- ========================================================================
     {
+        displayName = "Fire Resist Juju",
         itemName = "Juju Ember",
         itemID = 12455,
         iconPath = "Interface\\Icons\\INV_Misc_Monsterscales_15",
@@ -108,7 +118,7 @@ RCC_ConsumableData.Items = {
     },
 
     -- ========================================================================
-    -- PROTECTION POTIONS
+    -- POTIONS (Protection & Healing/Mana)
     -- ========================================================================
     {
         itemName = "Greater Fire Protection Potion",
@@ -120,9 +130,6 @@ RCC_ConsumableData.Items = {
         category = "category4"
     },
 
-    -- ========================================================================
-    -- POTIONS
-    -- ========================================================================
     {
         itemName = "Major Healing Potion",
         itemID = 13446,
@@ -130,9 +137,34 @@ RCC_ConsumableData.Items = {
         requiredCount = 10,
         -- buffName not specified = instant effect item (no buff to track)
         description = "Restores 1050 to 1750 health.",
+        category = "category4"
+    },
+    
+    -- ========================================================================
+    -- BUFFS (From other players or self-cast)
+    -- ========================================================================
+    {
+        displayName = "Mage Intellect",
+        iconPath = "Interface\\Icons\\spell_holy_magicalsentry",
+        buffName = "Arcane Intellect",
+        description = "Increases Intellect by 31 for 30 min.",
+        category = "category5"
+    },
+    {
+        displayName = "Druid Buffs",
+        iconPath = "Interface\\Icons\\spell_nature_regeneration",
+        buffName = { "Mark of the Wild", "Gift of the Wild" },
+        description = "Increases armor and all resistances.",
+        category = "category5"
+    },
+    {
+        iconPath = "Interface\\Icons\\spell_holy_wordfortitude",
+        buffName = { "Power Word: Fortitude", "Prayer of Fortitude" },
+        description = "Increases Stamina.",
         category = "category5"
     }
 }
+
 
 -- ============================================================================
 -- HELPER FUNCTION

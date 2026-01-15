@@ -9,7 +9,7 @@ RCC_Constants = {}
 -- ADDON INFO
 -- ============================================================================
 RCC_Constants.ADDON_NAME = "RaidConsumableChecker" -- Internal addon identifier
-RCC_Constants.ADDON_VERSION = "1.0.0" -- Current version number
+RCC_Constants.ADDON_VERSION = "1.1.0" -- Current version number
 
 -- ============================================================================
 -- UI DIMENSIONS
