@@ -4,13 +4,13 @@
 -- ============================================================================
 
 -- ============================================================================
--- CALCULATE WINDOW DIMENSIONS
+-- DIMENSIONS & LAYOUT
 -- ============================================================================
+
+-- Calculate window dimensions based on current item configuration
 function RaidConsumableChecker:CalculateWindowDimensions()
-    -- Group items by category
     local categorizedItems = self:GroupItemsByCategory()
     
-    -- Find max items in any category
     local maxItemsInCategory = 0
     for categoryId, items in pairs(categorizedItems) do
         if table.getn(items) > maxItemsInCategory then
@@ -18,76 +18,75 @@ function RaidConsumableChecker:CalculateWindowDimensions()
         end
     end
     
-    -- Calculate width based on max items
     local calculatedWidth = RCC_Constants.CONTENT_MARGIN_LEFT + 
                            RCC_Constants.CONTENT_MARGIN_RIGHT +
                            (maxItemsInCategory * (RCC_Constants.ICON_SIZE + RCC_Constants.ICON_SPACING_X)) + 
                            RCC_Constants.WINDOW_PADDING * 2
     
-    -- Apply minimum width
     if calculatedWidth < RCC_Constants.WINDOW_MIN_WIDTH then
         calculatedWidth = RCC_Constants.WINDOW_MIN_WIDTH
     end
     
-    -- Calculate height based on number of non-empty categories
     local numCategories = 0
     for _, _ in pairs(categorizedItems) do
         numCategories = numCategories + 1
     end
     
-    local calculatedHeight = RCC_Constants.TITLE_HEIGHT + 40 + -- Title and padding
+    local calculatedHeight = RCC_Constants.TITLE_HEIGHT + 40 + 
                             (numCategories * (RCC_Constants.CATEGORY_HEADER_HEIGHT + 
-                                            RCC_Constants.ICON_SIZE + 30 + -- Icon + name height
-                                            RCC_Constants.CATEGORY_SPACING)) +
+                                             RCC_Constants.ICON_SIZE + 30 + 
+                                             RCC_Constants.CATEGORY_SPACING)) +
                             RCC_Constants.CONTENT_MARGIN_BOTTOM
     
-    -- Store calculated dimensions
     self.windowWidth = calculatedWidth
     self.windowHeight = calculatedHeight
 end
 
--- ============================================================================
--- GROUP ITEMS BY CATEGORY
--- ============================================================================
+-- Organize items into categories for display
 function RaidConsumableChecker:GroupItemsByCategory()
     local categorizedItems = {}
-    local itemCount = RCC_ConsumableData:GetConsumableCount()
+    
+    if not RaidConsumableCheckerDB.ConsumableData or not RaidConsumableCheckerDB.ConsumableData.Items then
+        return categorizedItems
+    end
+
+    local items = RaidConsumableCheckerDB.ConsumableData.Items
+    local itemCount = table.getn(items)
+    local categories = RaidConsumableCheckerDB.ConsumableData.Categories
     
     for i = 1, itemCount do
-        local itemData = RCC_ConsumableData.Items[i]
+        local itemData = items[i]
         local category = itemData.category or "other"
         
-        -- Validate category exists in constants
         local categoryExists = false
-        for _, cat in ipairs(RCC_ConsumableData.Categories) do
+        for _, cat in ipairs(categories) do
             if cat.id == category then
                 categoryExists = true
                 break
             end
         end
         
-        -- If category doesn't exist, assign to "other"
         if not categoryExists then
             category = "other"
         end
         
-        -- Initialize category array if needed
         if not categorizedItems[category] then
             categorizedItems[category] = {}
         end
         
-        -- Add item to category
         table.insert(categorizedItems[category], itemData)
     end
     
     return categorizedItems
 end
 
--- ============================================================================
--- GET CATEGORY INFO BY ID
--- ============================================================================
+-- Retrieve category information by ID
 function RaidConsumableChecker:GetCategoryInfo(categoryId)
-    for _, cat in ipairs(RCC_ConsumableData.Categories) do
+    if not RaidConsumableCheckerDB.ConsumableData or not RaidConsumableCheckerDB.ConsumableData.Categories then
+        return nil
+    end
+
+    for _, cat in ipairs(RaidConsumableCheckerDB.ConsumableData.Categories) do
         if cat.id == categoryId then
             return cat
         end
@@ -96,8 +95,10 @@ function RaidConsumableChecker:GetCategoryInfo(categoryId)
 end
 
 -- ============================================================================
--- FRAME CREATION
+-- MAIN FRAME CREATION
 -- ============================================================================
+
+-- Create the main addon window and its components
 function RaidConsumableChecker:CreateMainFrame()
     local frame = CreateFrame("Frame", "RCCMainFrame", UIParent)
     frame:SetWidth(self.windowWidth or RCC_Constants.WINDOW_WIDTH)
@@ -110,8 +111,9 @@ function RaidConsumableChecker:CreateMainFrame()
     frame:SetMovable(true)
     frame:EnableMouse(true)
     frame:SetClampedToScreen(true)
+    frame:SetFrameStrata("MEDIUM")
+    frame:SetToplevel(true)
     
-    -- Background
     frame:SetBackdrop({
         bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
         edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
@@ -126,6 +128,7 @@ function RaidConsumableChecker:CreateMainFrame()
     
     -- Title bar
     local titleBar = CreateFrame("Frame", nil, frame)
+    self.titleBar = titleBar
     titleBar:SetWidth(self.windowWidth - 20 or RCC_Constants.WINDOW_WIDTH - 20)
     titleBar:SetHeight(RCC_Constants.TITLE_HEIGHT)
     titleBar:SetPoint("TOP", frame, "TOP", 0, -10)
@@ -147,7 +150,6 @@ function RaidConsumableChecker:CreateMainFrame()
     local titleTextR, titleTextG, titleTextB, titleTextA = self:HexToRGBA(RCC_Constants.TITLE_TEXT_COLOR)
     titleText:SetTextColor(titleTextR, titleTextG, titleTextB, titleTextA)
     
-    -- Make title bar draggable
     titleBar:EnableMouse(true)
     titleBar:RegisterForDrag("LeftButton")
     titleBar:SetScript("OnDragStart", function()
@@ -164,8 +166,18 @@ function RaidConsumableChecker:CreateMainFrame()
     closeBtn:SetScript("OnClick", function()
         frame:Hide()
     end)
+
+    -- Config button
+    local configBtn = CreateFrame("Button", nil, titleBar, "UIPanelButtonTemplate")
+    configBtn:SetWidth(60)
+    configBtn:SetHeight(20)
+    configBtn:SetPoint("RIGHT", closeBtn, "LEFT", -5, 0)
+    configBtn:SetText("Config")
+    configBtn:SetScript("OnClick", function()
+        RaidConsumableChecker:ToggleConfig()
+    end)
     
-    -- Content frame
+    -- Content area
     local contentFrame = CreateFrame("Frame", nil, frame)
     contentFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", RCC_Constants.WINDOW_PADDING, -(RCC_Constants.TITLE_HEIGHT + 20))
     contentFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -RCC_Constants.WINDOW_PADDING, RCC_Constants.WINDOW_PADDING)
@@ -174,21 +186,17 @@ function RaidConsumableChecker:CreateMainFrame()
     self.mainFrame = frame
     self.contentFrame = contentFrame
     
-    -- Create consumable item frames
     self:CreateConsumableFrames()
     
-    -- Register events
     frame:RegisterEvent("BAG_UPDATE")
     frame:SetScript("OnEvent", function()
         RaidConsumableChecker:OnEvent(event)
     end)
     
-    -- OnUpdate for buff scanning
     frame:SetScript("OnUpdate", function()
         RaidConsumableChecker:OnUpdate(arg1)
     end)
     
-    -- OnShow/OnHide handlers
     frame:SetScript("OnShow", function()
         RaidConsumableChecker:OnShow()
     end)
@@ -198,33 +206,29 @@ function RaidConsumableChecker:CreateMainFrame()
 end
 
 -- ============================================================================
--- CREATE CONSUMABLE ITEM FRAMES
+-- CONSUMABLE GRID CREATION
 -- ============================================================================
+
+-- Create all category headers and item frames dynamically
 function RaidConsumableChecker:CreateConsumableFrames()
-    -- Group items by category
+    self:ClearConsumableFrames()
+
     local categorizedItems = self:GroupItemsByCategory()
-    
-    -- Sort categories by order
     local sortedCategories = {}
-    for categoryId, items in pairs(categorizedItems) do
-        local catInfo = self:GetCategoryInfo(categoryId)
-        if catInfo then
-            table.insert(sortedCategories, {id = categoryId, info = catInfo, items = items})
+    local categories = RaidConsumableCheckerDB.ConsumableData.Categories
+    
+    for _, catInfo in ipairs(categories) do
+        local items = categorizedItems[catInfo.id]
+        if items and table.getn(items) > 0 then
+            table.insert(sortedCategories, {id = catInfo.id, info = catInfo, items = items})
         end
     end
     
-    table.sort(sortedCategories, function(a, b)
-        return a.info.order < b.info.order
-    end)
-    
-    -- Create frames for each category
     local currentYOffset = 0
     
     for _, category in ipairs(sortedCategories) do
-        -- Create category header
         currentYOffset = self:CreateCategoryHeader(category.info, currentYOffset)
         
-        -- Create items for this category
         for i, itemData in ipairs(category.items) do
             local col = (i - 1)
             local xOffset = RCC_Constants.CONTENT_MARGIN_LEFT + (col * (RCC_Constants.ICON_SIZE + RCC_Constants.ICON_SPACING_X))
@@ -233,20 +237,15 @@ function RaidConsumableChecker:CreateConsumableFrames()
             self:CreateItemFrame(itemData, xOffset, yOffset)
         end
         
-        -- Move Y offset down for next category
         currentYOffset = currentYOffset - (RCC_Constants.ICON_SIZE + 30 + RCC_Constants.CATEGORY_SPACING)
     end
 end
 
--- ============================================================================
--- CREATE CATEGORY HEADER
--- ============================================================================
+-- Create a text header for a category
 function RaidConsumableChecker:CreateCategoryHeader(categoryInfo, yOffset)
-    -- Build header text with dashes
-    local dashString = string.rep("-", categoryInfo.dashes or 15)
+    local dashString = string.rep("-", categoryInfo.dashes or 0)
     local headerText = dashString .. " " .. categoryInfo.name .. " " .. dashString
     
-    -- Create header text
     local header = self.contentFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     header:SetPoint("TOPLEFT", self.contentFrame, "TOPLEFT", RCC_Constants.CONTENT_MARGIN_LEFT, yOffset)
     header:SetFont(RCC_Constants.FONT_NORMAL, RCC_Constants.FONT_SIZE_CATEGORY, "OUTLINE")
@@ -255,12 +254,30 @@ function RaidConsumableChecker:CreateCategoryHeader(categoryInfo, yOffset)
     local catR, catG, catB, catA = self:HexToRGBA(RCC_Constants.TEXT_COLOR_CATEGORY)
     header:SetTextColor(catR, catG, catB, catA)
     
+    if not self.categoryHeaders then self.categoryHeaders = {} end
+    table.insert(self.categoryHeaders, header)
+    
     return yOffset - RCC_Constants.CATEGORY_HEADER_HEIGHT - 3
 end
 
--- ============================================================================
--- CREATE SINGLE ITEM FRAME
--- ============================================================================
+-- Hide and clear all current UI frames for consumables
+function RaidConsumableChecker:ClearConsumableFrames()
+    if self.itemFrames then
+        for _, frame in ipairs(self.itemFrames) do
+            frame:Hide()
+        end
+    end
+    self.itemFrames = {}
+    
+    if self.categoryHeaders then
+        for _, header in ipairs(self.categoryHeaders) do
+            header:Hide()
+        end
+    end
+    self.categoryHeaders = {}
+end
+
+-- Create an individual item slot UI frame
 function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
     local itemFrame = CreateFrame("Button", nil, self.contentFrame)
     itemFrame:SetWidth(RCC_Constants.ICON_SIZE)
@@ -275,14 +292,14 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
     iconBg:SetTexture(RCC_Constants.TEXTURE_BORDER)
     iconBg:SetVertexColor(0.2, 0.2, 0.2, 1)
     
-    -- Icon
+    -- Icon texture
     local icon = itemFrame:CreateTexture(nil, "ARTWORK")
     icon:SetWidth(RCC_Constants.ICON_SIZE)
     icon:SetHeight(RCC_Constants.ICON_SIZE)
     icon:SetPoint("TOP", itemFrame, "TOP", 0, 0)
     
-    -- Set texture with fallback to question mark if invalid or missing
-    if not itemData.iconPath or not icon:SetTexture(itemData.iconPath) then
+    local fullPath = self:GetFullIconPath(itemData.iconPath)
+    if not icon:SetTexture(fullPath) then
         icon:SetTexture(RCC_Constants.TEXTURE_DEFAULT_ICON)
     end
     
@@ -295,7 +312,6 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
     border:SetPoint("CENTER", icon, "CENTER", 0, 0)
     border:SetTexture(RCC_Constants.TEXTURE_BORDER)
     
-    -- Set initial border color
     if itemData.buffName then
         local inactiveR, inactiveG, inactiveB, inactiveA = self:HexToRGBA(RCC_Constants.BORDER_COLOR_BUFF_INACTIVE)
         border:SetVertexColor(inactiveR, inactiveG, inactiveB, inactiveA)
@@ -304,32 +320,32 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
         border:SetVertexColor(noBuffR, noBuffG, noBuffB, noBuffA)
     end
     
-    -- Counter text (only if requiredCount is defined)
+    -- Counter text
     local counterText = itemFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     counterText:SetPoint("BOTTOM", icon, "BOTTOM", 0, 2)
     counterText:SetFont(RCC_Constants.FONT_NORMAL, RCC_Constants.FONT_SIZE_COUNTER, "OUTLINE")
     
-    if itemData.requiredCount then
+    if itemData.requiredCount and itemData.requiredCount > 0 then
         counterText:SetText("0/" .. itemData.requiredCount)
     else
         counterText:Hide()
     end
 
-    -- Buff time remaining text
+    -- Buff timer
     local buffTimeText = itemFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    buffTimeText:SetPoint("CENTER", icon, "CENTER", 0, 8)
+    local timerYOffset = (itemData.requiredCount and itemData.requiredCount > 0) and 8 or 0
+    buffTimeText:SetPoint("CENTER", icon, "CENTER", 0, timerYOffset)
     buffTimeText:SetFont(RCC_Constants.FONT_NORMAL, RCC_Constants.FONT_SIZE_BUFF_TIME, "OUTLINE")
     buffTimeText:SetTextColor(1, 1, 1, 1)
     buffTimeText:SetText("")
     buffTimeText:Hide()
     
-    -- Item name text
+    -- Item label
     if RCC_Constants.SHOW_ITEM_NAMES then
         local nameText = itemFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         nameText:SetPoint("TOP", icon, "BOTTOM", 0, -5)
         nameText:SetFont(RCC_Constants.FONT_NORMAL, RCC_Constants.FONT_SIZE_ITEM_NAME, "")
         
-        -- Priority: displayName > itemName > first buffName
         local displayText = itemData.displayName or itemData.itemName
         if not displayText and itemData.buffName then
             if type(itemData.buffName) == "table" then
@@ -345,12 +361,11 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
         itemFrame.nameText = nameText
     end
     
-    -- Tooltip
+    -- Tooltip events
     itemFrame:EnableMouse(true)
     itemFrame:SetScript("OnEnter", function()
         GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
         
-        -- Priority: displayName > itemName > first buffName
         local tooltipTitle = itemData.displayName or itemData.itemName
         if not tooltipTitle and itemData.buffName then
             if type(itemData.buffName) == "table" then
@@ -364,8 +379,7 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
             GameTooltip:SetText(tooltipTitle, 1, 1, 1)
         end
         
-        -- Show required count if defined
-        if itemData.requiredCount then
+        if itemData.requiredCount and itemData.requiredCount > 0 then
             GameTooltip:AddLine("Required: " .. itemData.requiredCount, 0.8, 0.8, 0.8)
         end
         
@@ -380,7 +394,6 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
             else
                 local hasBuff = RaidConsumableChecker:HasBuff(itemData.buffName)
                 
-                -- Display buff name(s)
                 local buffDisplayText = "Buff: "
                 if type(itemData.buffName) == "table" then
                     buffDisplayText = buffDisplayText .. table.concat(itemData.buffName, " / ")
@@ -396,13 +409,11 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
             end
         end
         
-        -- Show description if available
         if itemData.description then
             local descR, descG, descB, descA = RaidConsumableChecker:HexToRGBA(RCC_Constants.TEXT_COLOR_DESCRIPTION)
-            GameTooltip:AddLine(itemData.description, descR, descG, descB, true) -- true = wrap text
+            GameTooltip:AddLine(itemData.description, descR, descG, descB, true)
         end
         
-        -- Show click hint only if item can be used (has itemName and buffName)
         if itemData.buffName and itemData.itemName then
             GameTooltip:AddLine(RCC_Constants.TEXT_TOOLTIP_CLICK_TO_USE, 0.5, 0.5, 1)
         end
@@ -413,7 +424,6 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
         GameTooltip:Hide()
     end)
     
-    -- Click handler (only if item has both buffName and itemName)
     if itemData.buffName and itemData.itemName then
         itemFrame:RegisterForClicks("LeftButtonUp")
         itemFrame:SetScript("OnClick", function()
@@ -421,7 +431,6 @@ function RaidConsumableChecker:CreateItemFrame(itemData, xOffset, yOffset)
         end)
     end
     
-    -- Store references
     itemFrame.iconBg = iconBg
     itemFrame.icon = icon
     itemFrame.border = border
