@@ -119,7 +119,7 @@ When adding or editing an item in the configuration menu, follow this guide for 
 | Field | &nbsp;&nbsp;&nbsp;Necessity&nbsp;&nbsp;&nbsp; | Description |
 |-------|-----------|-------------|
 | **Type** | ✅ Essential | **Consumable** (standard item) vs **Buff** (class buff). Choosing *Buff* disables inventory-related fields. |
-| **Item Name** | ✅ Essential* | Exact name of the item in your bags. **Required for clickable use and inventory counts.** Disabled for *Buff* type. |
+| **Item Name** | ✅ Essential | Exact name of the item in your bags. **Required for clickable use and inventory counts.** Disabled for *Buff* type. |
 | **Display Name** | ❌ Optional | A custom label for the UI (falls back to Item Name or Buff Name if left empty). |
 | **Buff Name(s)** | ✅ Essential | The name(s) of the buff to track. Can be one or more separated by commas (e.g., `Arcane Intellect, Arcane Brilliance`) or `EQUIPPED_WEAPON`*. **Required for buff tracking.** |
 | **Required Count**| ❌ Optional | Target amount to carry. If empty or `0`, the counter is hidden. Disabled if *Type* is **Buff**. |
