@@ -15,6 +15,42 @@ local isNewCategory = false
 local activeTab = "items"
 
 -- ============================================================================
+-- HELPER: Tab Navigation for EditBoxes
+-- ============================================================================
+local function SetupTabNavigation(fields)
+    local num = table.getn(fields)
+    for i = 1, num do
+        local current = fields[i]
+        local nextIdx = (i == num) and 1 or (i + 1)
+        local prevIdx = (i == 1) and num or (i - 1)
+        
+        current:SetScript("OnTabPressed", function()
+            local target
+            local function IsFocusable(f)
+                return f:IsVisible() and f:GetAlpha() > 0.6
+            end
+
+            if IsShiftKeyDown() then
+                local idx = prevIdx
+                while not IsFocusable(fields[idx]) and idx ~= i do
+                    idx = (idx == 1) and num or (idx - 1)
+                end
+                target = fields[idx]
+            else
+                local idx = nextIdx
+                while not IsFocusable(fields[idx]) and idx ~= i do
+                    idx = (idx == num) and 1 or (idx + 1)
+                end
+                target = fields[idx]
+            end
+            if target and IsFocusable(target) then
+                target:SetFocus()
+            end
+        end)
+    end
+end
+
+-- ============================================================================
 -- POPUP DIALOGS
 -- ============================================================================
 StaticPopupDialogs["RCC_CONFIRM_DELETE_CAT"] = {
@@ -489,6 +525,18 @@ function RaidConsumableChecker:CreateConfigFrame()
         field:SetScript("OnTextChanged", function() RaidConsumableChecker:UpdateConfigButtonStates() end)
     end
 
+    -- Setup Tab Navigation for Item Form
+    local itemTabFields = { 
+        self.editItemName, 
+        self.editDisplayName, 
+        self.editBuffName, 
+        self.editRequiredCount, 
+        self.editItemID, 
+        self.editIconPath, 
+        self.editDescription 
+    }
+    SetupTabNavigation(itemTabFields)
+
     -- Coming Soon Tab
     local comingSoonContainer = CreateFrame("Frame", "RCCConfigComingSoonContainer", frame)
     comingSoonContainer:SetAllPoints(frame)
@@ -529,6 +577,13 @@ function RaidConsumableChecker:CreateConfigFrame()
     
     catFormY = catFormY - fieldSpacing
     
+    -- Setup Tab Navigation for Category Form
+    local catTabFields = { 
+        self.editCatName, 
+        self.editCatDashes 
+    }
+    SetupTabNavigation(catTabFields)
+
     -- Order Section
     local orderLabel = catFormContainer:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     orderLabel:SetPoint("TOPLEFT", catFormContainer, "TOPLEFT", 0, catFormY)

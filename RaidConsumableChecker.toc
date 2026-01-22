@@ -2,7 +2,7 @@
 ## Title: Raid Consumable Checker
 ## Notes: Raid consumable tracker with inventory counts and buff timers
 ## Author: Devilquest
-## Version: 2.0.0
+## Version: 2.1.0
 ## X-Website: https://github.com/Devilquest/RaidConsumableChecker
 ## SavedVariables: RaidConsumableCheckerDB
 

@@ -2,7 +2,7 @@
 
 A visual tracker addon for World of Warcraft Vanilla 1.12 that helps you monitor your raid consumables with real-time inventory counts and buff timers.
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)
 ![WoW Version](https://img.shields.io/badge/wow-1.12.x-orange.svg)
 
 ## Features
@@ -321,6 +321,12 @@ If you are upgrading from a previous version (1.x), the addon will automatically
 ---
 
 ## Changelog
+
+### v2.1.0
+- Added Tab navigation to the configuration forms.
+- Support for cycling focus between EditBoxes using the **Tab** key.
+- Reverse navigation supported using **Shift + Tab**.
+- Intelligent field skipping: Disabled or grayed-out fields are automatically skipped during navigation.
 
 ### v2.0.0
 - In-game Configuration UI (Items & Categories).
